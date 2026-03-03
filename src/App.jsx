@@ -43,6 +43,7 @@ export default function App() {
       );
       setProjects(updatedProjects);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slides]);
 
   useEffect(() => {
@@ -80,6 +81,7 @@ export default function App() {
     };
 
     loadWork();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const createNewProject = () => {
@@ -203,13 +205,7 @@ export default function App() {
     return (
       <div style={previewOverlayStyle}>
         {view !== "shared" && <button onClick={() => setIsPreview(false)} style={exitPreviewButtonStyle}>✕ 編集に戻る</button>}
-       {view === "shared" && 
-  <button onClick={() => setView("home")} style={exitPreviewButtonStyle}>
-    <span className="material-symbols-outlined" style={{ verticalAlign: "middle" }}>
-      home
-    </span>
-  </button>
-}
+        {view === "shared" && <button onClick={() => setView("home")} style={exitPreviewButtonStyle}>🏠 ホームへ</button>}
         <div style={canvasWrapperStyle}>
           <GameCanvas scene={currentScene} />
         </div>
@@ -230,13 +226,12 @@ export default function App() {
     style={{ fontSize: "24px" }}
   >
     home
-  </span>   
-</button>
+  </span>   </button>
         <div style={{ color: "#ff69b4", fontWeight: "bold", fontSize: "0.9rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, textAlign: "center", margin: "0 10px" }}>
           {projects.find(p => p.id === currentProjectId)?.name}
         </div>
         <div style={{ display: "flex", gap: "5px" }}>
-          <button onClick={publishProject} style={toolbarButtonStyle}>🚀共有URL</button>
+          <button onClick={publishProject} style={toolbarButtonStyle}>🚀URL共有</button>
           <button onClick={() => setIsPreview(true)} style={saveButtonStyle}>📖 再生</button>
         </div>
       </div>
@@ -277,7 +272,7 @@ function WorkPage({ setSlides, setView, setCurrentIndex, setCurrentProjectId }) 
   const editKey = searchParams.get("key");
   useEffect(() => {
     const loadWork = async () => {
-      const { data, error } = await supabase.from("works").select("*").eq(id.includes('-') ? "id" : "id", id).single();
+      const { data, error } = await supabase.from("works").select("*").eq("id", id).single();
       if (error) { alert("作品が見つかりません"); return; }
       setSlides(data.content);
       setCurrentIndex(0);
@@ -285,6 +280,7 @@ function WorkPage({ setSlides, setView, setCurrentIndex, setCurrentProjectId }) 
       else { setView("shared"); }
     };
     loadWork();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
   return null;
 }
@@ -314,6 +310,3 @@ const previewOverlayStyle = { position: "fixed", top: 0, left: 0, width: "100%",
 const canvasWrapperStyle = { width: "100%", maxWidth: "800px", transform: window.innerWidth > 800 ? "scale(1.1)" : "scale(1)" };
 const exitPreviewButtonStyle = { position: "absolute", top: "15px", right: "15px", padding: "8px 15px", borderRadius: "30px", background: "rgba(255,255,255,0.2)", color: "white", border: "1px solid white", cursor: "pointer", fontSize: "0.8rem", zIndex: 2100 };
 const previewNavStyle = { position: "absolute", bottom: "30px", display: "flex", gap: "40px" };
-
-
-
