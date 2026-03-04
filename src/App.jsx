@@ -6,7 +6,7 @@ import EditorPanel from "./EditorPanel";
 import html2canvas from "html2canvas";
 
 const initialScene = {
-  name: "鴻上大和",
+  name: "",
   text: "",
   charImg: "",
   bgImg: "",
@@ -152,6 +152,10 @@ export default function App() {
       setCurrentIndex(currentIndex + 1);
       return;
     }
+    // プレビュー中または共有表示中の場合は、最後の枚数で止める
+    if (isPreview || view === "shared") return;
+    
+    // 編集中の場合のみ、新しいスライドを追加する
     setSlides([...slides, { ...currentScene, text: "", choices: [] }]);
     setCurrentIndex(currentIndex + 1);
   };
@@ -168,22 +172,20 @@ export default function App() {
   };
 
   const shareOnX = () => {
-    if (!shareInfo?.shareUrl) { alert("先に公開してください"); return; }
+    if (!shareInfo?.shareUrl) { alert("先に保存してください"); return; }
     const text = encodeURIComponent("乙女ゲームメーカーで作りました！あなたも簡単に作れます✨");
     window.open(`https://twitter.com/intent/tweet?text=${text}&url=${encodeURIComponent(shareInfo.shareUrl)}`, "_blank");
   };
 
-  // --- 表示ロジックの整理 ---
   return (
     <>
-      {/* 1. URLを常に監視する唯一の Routes (画面には何も表示しない設定) */}
       <div style={{ display: "none" }}>
         <Routes>
+          <Route path="/" element={null} />
           <Route path="/work/:id" element={<WorkPage setSlides={setSlides} setView={setView} setCurrentIndex={setCurrentIndex} setCurrentProjectId={setCurrentProjectId} />} />
         </Routes>
       </div>
 
-      {/* 2. 条件分岐による実際の表示 */}
       {view === "home" ? (
         <div style={homeBackgroundStyle}>
           <div style={titleBoxStyle}>
@@ -209,12 +211,17 @@ export default function App() {
         <div style={previewOverlayStyle}>
           {view !== "shared" && <button onClick={() => setIsPreview(false)} style={exitPreviewButtonStyle}>✕ 編集に戻る</button>}
           {view === "shared" && <button onClick={() => setView("home")} style={exitPreviewButtonStyle}>🏠 ホームへ</button>}
+          
+          <div style={{ background: "#fff", padding: "5px 15px", borderRadius: "20px", border: "1px solid #ffdae9", color: "#ff69b4", fontWeight: "bold", fontSize: "0.8rem", marginBottom: "15px", zIndex: 2100 }}>
+            SCENE {currentIndex + 1} / {slides.length}
+          </div>
+
           <div style={canvasWrapperStyle}>
             <GameCanvas scene={currentScene} />
           </div>
           <div style={previewNavStyle}>
-            <button onClick={goToPrev} disabled={currentIndex === 0} style={arrowButtonStyle}>◀</button>
-            <button onClick={goToNext} style={arrowButtonStyle}>▶</button>
+            <button onClick={goToPrev} disabled={currentIndex === 0} style={{ ...arrowButtonStyle, opacity: currentIndex === 0 ? 0.3 : 1 }}>◀</button>
+            <button onClick={goToNext} disabled={currentIndex === slides.length - 1} style={{ ...arrowButtonStyle, opacity: currentIndex === slides.length - 1 ? 0.3 : 1 }}>▶</button>
           </div>
         </div>
       ) : (
@@ -227,7 +234,7 @@ export default function App() {
               {projects.find(p => p.id === currentProjectId)?.name}
             </div>
             <div style={{ display: "flex", gap: "5px" }}>
-              <button onClick={publishProject} style={toolbarButtonStyle}>🚀URL共有</button>
+              <button onClick={publishProject} style={toolbarButtonStyle}>保存</button>
               <button onClick={() => setIsPreview(true)} style={saveButtonStyle}>📖 再生</button>
             </div>
           </div>
@@ -282,7 +289,6 @@ function WorkPage({ setSlides, setView, setCurrentIndex, setCurrentProjectId }) 
   return null;
 }
 
-// スタイル定義（変更なし）
 const homeBackgroundStyle = { minHeight: "100vh", background: "linear-gradient(135deg, #fff5f7 0%, #ffffff 100%)", padding: "20px", display: "flex", flexDirection: "column", alignItems: "center", fontFamily: "sans-serif" };
 const titleBoxStyle = { width: "90%", maxWidth: "500px", display: "flex", justifyContent: "center", alignItems: "center", gap: "15px", padding: "10px 20px", background: "#fff", borderRadius: "50px", border: "1px solid #ffdae9", marginBottom: "30px", boxShadow: "0 10px 20px rgba(255, 182, 193, 0.1)" };
 const titleStyle = { fontSize: "clamp(1.2rem, 5vw, 2rem)", fontWeight: "bold", color: "#ff69b4", margin: 0, letterSpacing: "0.05em" };
