@@ -173,96 +173,93 @@ export default function App() {
     window.open(`https://twitter.com/intent/tweet?text=${text}&url=${encodeURIComponent(shareInfo.shareUrl)}`, "_blank");
   };
 
-  if (view === "home") {
-    return (
-      <div style={homeBackgroundStyle}>
-        <div style={titleBoxStyle}>
-          <span style={{ fontSize: "1.2rem" }}>🌸</span>
-          <h1 style={titleStyle}>乙女ゲームメーカー</h1>
-          <span style={{ fontSize: "1.2rem" }}>🌸</span>
-        </div>
-        <div style={projectGridStyle}>
-          <div onClick={createNewProject} style={newProjectCardStyle}>
-            <span style={{ fontSize: "2.5rem" }}>＋</span>
-            <p style={{ margin: "5px 0 0" }}>新しく作る</p>
-          </div>
-          {projects.map(project => (
-            <div key={project.id} onClick={() => openProject(project)} style={projectCardStyle}>
-              <h3 style={{ color: "#ff69b4", fontSize: "1rem", margin: "0 0 5px" }}>{project.name}</h3>
-              <p style={{ fontSize: "0.75rem", color: "#999", margin: 0 }}>{project.slides.length} スライド</p>
-              <button onClick={(e) => { e.stopPropagation(); deleteProject(project.id, project.editKey); }} style={deleteButtonStyle}>削除</button>
-            </div>
-          ))}
-        </div>
+  // --- 表示ロジックの整理 ---
+  return (
+    <>
+      {/* 1. URLを常に監視する唯一の Routes (画面には何も表示しない設定) */}
+      <div style={{ display: "none" }}>
         <Routes>
           <Route path="/work/:id" element={<WorkPage setSlides={setSlides} setView={setView} setCurrentIndex={setCurrentIndex} setCurrentProjectId={setCurrentProjectId} />} />
         </Routes>
       </div>
-    );
-  }
 
-  if (isPreview || view === "shared") {
-    return (
-      <div style={previewOverlayStyle}>
-        {view !== "shared" && <button onClick={() => setIsPreview(false)} style={exitPreviewButtonStyle}>✕ 編集に戻る</button>}
-        {view === "shared" && <button onClick={() => setView("home")} style={exitPreviewButtonStyle}>🏠 ホームへ</button>}
-        <div style={canvasWrapperStyle}>
-          <GameCanvas scene={currentScene} />
+      {/* 2. 条件分岐による実際の表示 */}
+      {view === "home" ? (
+        <div style={homeBackgroundStyle}>
+          <div style={titleBoxStyle}>
+            <span style={{ fontSize: "1.2rem" }}>🌸</span>
+            <h1 style={titleStyle}>乙女ゲームメーカー</h1>
+            <span style={{ fontSize: "1.2rem" }}>🌸</span>
+          </div>
+          <div style={projectGridStyle}>
+            <div onClick={createNewProject} style={newProjectCardStyle}>
+              <span style={{ fontSize: "2.5rem" }}>＋</span>
+              <p style={{ margin: "5px 0 0" }}>新しく作る</p>
+            </div>
+            {projects.map(project => (
+              <div key={project.id} onClick={() => openProject(project)} style={projectCardStyle}>
+                <h3 style={{ color: "#ff69b4", fontSize: "1rem", margin: "0 0 5px" }}>{project.name}</h3>
+                <p style={{ fontSize: "0.75rem", color: "#999", margin: 0 }}>{project.slides.length} スライド</p>
+                <button onClick={(e) => { e.stopPropagation(); deleteProject(project.id, project.editKey); }} style={deleteButtonStyle}>削除</button>
+              </div>
+            ))}
+          </div>
         </div>
-        <div style={previewNavStyle}>
-          <button onClick={goToPrev} disabled={currentIndex === 0} style={arrowButtonStyle}>◀</button>
-          <button onClick={goToNext} style={arrowButtonStyle}>▶</button>
+      ) : (isPreview || view === "shared") ? (
+        <div style={previewOverlayStyle}>
+          {view !== "shared" && <button onClick={() => setIsPreview(false)} style={exitPreviewButtonStyle}>✕ 編集に戻る</button>}
+          {view === "shared" && <button onClick={() => setView("home")} style={exitPreviewButtonStyle}>🏠 ホームへ</button>}
+          <div style={canvasWrapperStyle}>
+            <GameCanvas scene={currentScene} />
+          </div>
+          <div style={previewNavStyle}>
+            <button onClick={goToPrev} disabled={currentIndex === 0} style={arrowButtonStyle}>◀</button>
+            <button onClick={goToNext} style={arrowButtonStyle}>▶</button>
+          </div>
         </div>
-      </div>
-    );
-  }
+      ) : (
+        <div style={editorBackgroundStyle}>
+          <div style={toolbarStyle}>
+            <button onClick={() => setView("home")} style={toolbarButtonStyle}>
+              <span className="material-symbols-outlined" style={{ fontSize: "24px" }}>home</span>
+            </button>
+            <div style={{ color: "#ff69b4", fontWeight: "bold", fontSize: "0.9rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, textAlign: "center", margin: "0 10px" }}>
+              {projects.find(p => p.id === currentProjectId)?.name}
+            </div>
+            <div style={{ display: "flex", gap: "5px" }}>
+              <button onClick={publishProject} style={toolbarButtonStyle}>🚀URL共有</button>
+              <button onClick={() => setIsPreview(true)} style={saveButtonStyle}>📖 再生</button>
+            </div>
+          </div>
+          
+          <div style={{ background: "#fff", padding: "5px 15px", borderRadius: "20px", border: "1px solid #ffdae9", color: "#ff69b4", fontWeight: "bold", fontSize: "0.8rem" }}>
+            SCENE {currentIndex + 1} / {slides.length}
+          </div>
 
-  return (
-    <div style={editorBackgroundStyle}>
-      <div style={toolbarStyle}>
-       <button onClick={() => setView("home")} style={toolbarButtonStyle}>
-  <span 
-    className="material-symbols-outlined" 
-    style={{ fontSize: "24px" }}
-  >
-    home
-  </span>   </button>
-        <div style={{ color: "#ff69b4", fontWeight: "bold", fontSize: "0.9rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, textAlign: "center", margin: "0 10px" }}>
-          {projects.find(p => p.id === currentProjectId)?.name}
-        </div>
-        <div style={{ display: "flex", gap: "5px" }}>
-          <button onClick={publishProject} style={toolbarButtonStyle}>🚀URL共有</button>
-          <button onClick={() => setIsPreview(true)} style={saveButtonStyle}>📖 再生</button>
-        </div>
-      </div>
-      
-      <div style={{ background: "#fff", padding: "5px 15px", borderRadius: "20px", border: "1px solid #ffdae9", color: "#ff69b4", fontWeight: "bold", fontSize: "0.8rem" }}>
-        SCENE {currentIndex + 1} / {slides.length}
-      </div>
+          <div style={mainEditorAreaStyle}>
+            <button onClick={goToPrev} disabled={currentIndex === 0} style={{ ...arrowButtonStyle, opacity: currentIndex === 0 ? 0.3 : 1, display: window.innerWidth < 600 ? "none" : "flex" }}>◀</button>
+            <div ref={canvasRef} style={canvasContainerStyle}>
+              <GameCanvas scene={currentScene} />
+            </div>
+            <button onClick={goToNext} style={{ ...arrowButtonStyle, display: window.innerWidth < 600 ? "none" : "flex" }}>▶</button>
+          </div>
 
-      <div style={mainEditorAreaStyle}>
-        <button onClick={goToPrev} disabled={currentIndex === 0} style={{ ...arrowButtonStyle, opacity: currentIndex === 0 ? 0.3 : 1, display: window.innerWidth < 600 ? "none" : "flex" }}>◀</button>
-        <div ref={canvasRef} style={canvasContainerStyle}>
-          <GameCanvas scene={currentScene} />
+          <div style={mobileNavStyle}>
+            <button onClick={goToPrev} disabled={currentIndex === 0} style={arrowButtonStyle}>◀</button>
+            <button onClick={goToNext} style={arrowButtonStyle}>▶</button>
+          </div>
+
+          <div style={panelWrapperStyle}>
+            <EditorPanel scene={currentScene} onUpdate={handleUpdate} />
+          </div>
+          
+          <div style={{ display: "flex", gap: "10px", width: "100%", maxWidth: "800px", justifyContent: "center", paddingBottom: "20px" }}>
+              <button onClick={saveSlideAsImage} style={toolbarButtonStyle}>📸 画像保存</button>
+              <button onClick={shareOnX} style={toolbarButtonStyle}>𝕏 共有</button>
+          </div>
         </div>
-        <button onClick={goToNext} style={{ ...arrowButtonStyle, display: window.innerWidth < 600 ? "none" : "flex" }}>▶</button>
-      </div>
-
-      {/* スマホ用ナビボタン */}
-      <div style={mobileNavStyle}>
-        <button onClick={goToPrev} disabled={currentIndex === 0} style={arrowButtonStyle}>◀</button>
-        <button onClick={goToNext} style={arrowButtonStyle}>▶</button>
-      </div>
-
-      <div style={panelWrapperStyle}>
-        <EditorPanel scene={currentScene} onUpdate={handleUpdate} />
-      </div>
-      
-      <div style={{ display: "flex", gap: "10px", width: "100%", maxWidth: "800px", justifyContent: "center", paddingBottom: "20px" }}>
-          <button onClick={saveSlideAsImage} style={toolbarButtonStyle}>📸 画像保存</button>
-          <button onClick={shareOnX} style={toolbarButtonStyle}>𝕏 共有</button>
-      </div>
-    </div>
+      )}
+    </>
   );
 }
 
@@ -285,7 +282,7 @@ function WorkPage({ setSlides, setView, setCurrentIndex, setCurrentProjectId }) 
   return null;
 }
 
-// レスポンシブ用スタイル
+// スタイル定義（変更なし）
 const homeBackgroundStyle = { minHeight: "100vh", background: "linear-gradient(135deg, #fff5f7 0%, #ffffff 100%)", padding: "20px", display: "flex", flexDirection: "column", alignItems: "center", fontFamily: "sans-serif" };
 const titleBoxStyle = { width: "90%", maxWidth: "500px", display: "flex", justifyContent: "center", alignItems: "center", gap: "15px", padding: "10px 20px", background: "#fff", borderRadius: "50px", border: "1px solid #ffdae9", marginBottom: "30px", boxShadow: "0 10px 20px rgba(255, 182, 193, 0.1)" };
 const titleStyle = { fontSize: "clamp(1.2rem, 5vw, 2rem)", fontWeight: "bold", color: "#ff69b4", margin: 0, letterSpacing: "0.05em" };
@@ -293,19 +290,15 @@ const projectGridStyle = { display: "grid", gridTemplateColumns: "repeat(auto-fi
 const projectCardStyle = { background: "#fff", padding: "15px", borderRadius: "15px", border: "1px solid #ffdae9", textAlign: "center", cursor: "pointer", boxShadow: "0 4px 10px rgba(255,182,193,0.15)" };
 const newProjectCardStyle = { ...projectCardStyle, border: "2px dashed #ffb6c1", color: "#ffb6c1" };
 const deleteButtonStyle = { marginTop: "8px", background: "none", border: "none", color: "#ffb6c1", cursor: "pointer", fontSize: "0.65rem" };
-
 const editorBackgroundStyle = { display: "flex", flexDirection: "column", alignItems: "center", gap: "15px", padding: "10px", minHeight: "100vh", background: "#fff5f7", fontFamily: "sans-serif" };
 const toolbarStyle = { width: "100%", maxWidth: "800px", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 15px", background: "#fff", borderRadius: "30px", border: "1px solid #ffdae9", boxSizing: "border-box" };
 const toolbarButtonStyle = { padding: "8px 12px", borderRadius: "20px", border: "1px solid #ffdae9", background: "#fff", color: "#ff69b4", cursor: "pointer", fontSize: "0.85rem", fontWeight: "bold" };
 const saveButtonStyle = { ...toolbarButtonStyle, background: "#ff69b4", color: "#fff", border: "none" };
-
 const mainEditorAreaStyle = { display: "flex", alignItems: "center", gap: "10px", width: "100%", justifyContent: "center" };
 const canvasContainerStyle = { width: "100%", maxWidth: "800px", boxShadow: "0 10px 30px rgba(0,0,0,0.1)", borderRadius: "15px", overflow: "hidden" };
 const panelWrapperStyle = { width: "100%", maxWidth: "800px" };
-
 const mobileNavStyle = { display: window.innerWidth < 600 ? "flex" : "none", gap: "20px", marginTop: "5px" };
 const arrowButtonStyle = { width: "45px", height: "45px", borderRadius: "50%", border: "2px solid #ffb6c1", background: "#fff", color: "#ff69b4", fontSize: "1rem", display: "flex", justifyContent: "center", alignItems: "center", cursor: "pointer", boxShadow: "0 4px 10px rgba(255,182,193,0.3)" };
-
 const previewOverlayStyle = { position: "fixed", top: 0, left: 0, width: "100%", height: "100%", background: "#111", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", zIndex: 2000, padding: "10px" };
 const canvasWrapperStyle = { width: "100%", maxWidth: "800px", transform: window.innerWidth > 800 ? "scale(1.1)" : "scale(1)" };
 const exitPreviewButtonStyle = { position: "absolute", top: "15px", right: "15px", padding: "8px 15px", borderRadius: "30px", background: "rgba(255,255,255,0.2)", color: "white", border: "1px solid white", cursor: "pointer", fontSize: "0.8rem", zIndex: 2100 };
