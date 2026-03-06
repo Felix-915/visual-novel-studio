@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
+import { supabase } from "./supabase";
 
 export default function EditorPanel({ scene, onUpdate }) {
 
   const [showModal, setShowModal] = useState(false);
   const [tempChoices, setTempChoices] = useState(["", "", ""]);
-  // 画面幅を監視してレスポンシブ対応
   const [isMobile, setIsMobile] = useState(window.innerWidth < 600);
 
   useEffect(() => {
@@ -14,14 +14,50 @@ export default function EditorPanel({ scene, onUpdate }) {
   }, []);
 
   const handleChange = (field, value) => onUpdate({ ...scene, [field]: value });
-  const handleFile = (field, e) => {
+
+  const handleFile = async (field, e) => {
     const file = e.target.files[0];
-    if (file) handleChange(field, URL.createObjectURL(file));
+    if (!file) return;
+
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Math.random()}-${Date.now()}.${fileExt}`;
+    const filePath = `${fileName}`;
+
+    const { data, error } = await supabase.storage
+      .from('game-images')
+      .upload(filePath, file);
+
+    if (error) {
+      alert("アップロードに失敗しました: " + error.message);
+      return;
+    }
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('game-images')
+      .getPublicUrl(filePath);
+
+    handleChange(field, publicUrl);
   };
+
   const applyChoices = () => { onUpdate({ ...scene, choices: tempChoices }); setShowModal(false); };
 
   const labelStyle = { display: "block", fontSize: "0.85rem", fontWeight: "bold", color: "#d02090", marginBottom: "5px", marginTop: "15px", letterSpacing: "0.05em" };
   const inputBaseStyle = { width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #ffdae9", background: "#fff9fb", boxSizing: "border-box", fontSize: "1rem", outline: "none", color: "#444" };
+
+  // --- カスタムファイルボタンのスタイル ---
+  const fileButtonStyle = (hasFile) => ({
+    ...inputBaseStyle,
+    fontSize: "0.8rem",
+    border: hasFile ? "1px solid #ffb6c1" : "1px dashed #ffb6c1",
+    background: hasFile ? "#fff0f5" : "#fff9fb",
+    color: hasFile ? "#ff1493" : "#999",
+    textAlign: "center",
+    cursor: "pointer",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    height: "38px"
+  });
 
   return (
     <div style={{
@@ -33,11 +69,10 @@ export default function EditorPanel({ scene, onUpdate }) {
       borderRadius: "20px",
       boxShadow: "0 10px 25px rgba(255, 182, 193, 0.2)",
       border: "1px solid #ffe4ed",
-      boxSizing: "border-box" // パディングが幅に含まれるようにする
+      boxSizing: "border-box"
     }}>
       <div style={{ 
         display: "grid", 
-        // スマホ（isMobileがtrue）なら1列、PCなら2列にする
         gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", 
         gap: "20px" 
       }}>
@@ -49,9 +84,25 @@ export default function EditorPanel({ scene, onUpdate }) {
         </div>
         <div>
           <label style={labelStyle}>🖼️ キャラ画像</label>
-          <input type="file" onChange={(e) => handleFile("charImg", e)} style={{ ...inputBaseStyle, fontSize: "0.8rem", border: "1px dashed #ffb6c1" }} />
+          <label style={fileButtonStyle(!!scene.charImg)}>
+            {scene.charImg ? "（タップで変更）" : "📁 ファイルを選択"}
+            <input 
+              type="file" 
+              onChange={(e) => handleFile("charImg", e)} 
+              style={{ display: "none" }} // 本物のボタンは隠す
+            />
+          </label>
+
           <label style={labelStyle}>🌄 背景画像</label>
-          <input type="file" onChange={(e) => handleFile("bgImg", e)} style={{ ...inputBaseStyle, fontSize: "0.8rem", border: "1px dashed #ffb6c1" }} />
+          <label style={fileButtonStyle(!!scene.bgImg)}>
+            {scene.bgImg ? "（タップで変更）" : "📁 ファイルを選択"}
+            <input 
+              type="file" 
+              onChange={(e) => handleFile("bgImg", e)} 
+              style={{ display: "none" }} // 本物のボタンは隠す
+            />
+          </label>
+
           <button onClick={() => { setTempChoices(scene.choices.length > 0 ? [...scene.choices] : ["", "", ""]); setShowModal(true); }}
             style={{ width: "100%", marginTop: "25px", padding: "12px", background: "linear-gradient(to right, #ff69b4, #ff1493)", color: "white", border: "none", borderRadius: "25px", fontWeight: "bold", cursor: "pointer", boxShadow: "0 4px 10px rgba(255, 20, 147, 0.3)" }}>
             ＋ 選択肢を編集する

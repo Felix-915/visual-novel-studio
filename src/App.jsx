@@ -120,26 +120,69 @@ export default function App() {
     setView("home");
   };
 
-  const publishProject = async () => {
+ const publishProject = async () => {
     const projectIndex = projects.findIndex(p => p.id === currentProjectId);
     const projectData = projects[projectIndex];
+
+    // --- 追加：もしeditKeyがなければ、その場で生成して保存する ---
+    let currentEditKey = projectData.editKey;
+    if (!currentEditKey) {
+      currentEditKey = generateEditKey();
+      // ローカルのプロジェクト一覧にも即座に反映
+      const updatedProjectsTemp = [...projects];
+      updatedProjectsTemp[projectIndex].editKey = currentEditKey;
+      setProjects(updatedProjectsTemp);
+    }
+    // ---------------------------------------------------
+
     let result;
     if (projectData.publishedId) {
-      result = await supabase.from("works").update({ title: projectData.name, content: slides }).eq("id", projectData.publishedId).eq("edit_key", projectData.editKey).select().single();
+      // 既存データの更新
+      result = await supabase
+        .from("works")
+        .update({ 
+          title: projectData.name, 
+          content: slides 
+        })
+        .eq("id", projectData.publishedId)
+        .eq("edit_key", currentEditKey) // projectData.editKey ではなく今の変数を使う
+        .select();
     } else {
-      result = await supabase.from("works").insert([{ title: projectData.name, content: slides, edit_key: projectData.editKey, is_public: true }]).select().single();
+      // 新規保存
+      result = await supabase
+        .from("works")
+        .insert([{ 
+          title: projectData.name, 
+          content: slides, 
+          edit_key: currentEditKey, // projectData.editKey ではなく今の変数を使う
+          is_public: true 
+        }])
+        .select();
     }
+
     const { data, error } = result;
-    if (error) { alert("保存失敗: " + error.message); return; }
+    if (error) { 
+      alert("保存失敗: " + error.message); 
+      console.error("Error detail:", error); // 詳細をコンソールに出す
+      return; 
+    }
+    if (!data || data.length === 0) { 
+      alert("保存に失敗しました。合鍵（edit_key）が一致しないか、データが見つかりません。"); 
+      return; 
+    }
+    
+    const savedData = data[0];
     const updatedProjects = [...projects];
-    updatedProjects[projectIndex].publishedId = data.id;
+    updatedProjects[projectIndex].publishedId = savedData.id;
+    updatedProjects[projectIndex].editKey = currentEditKey; // 確実に保存
     setProjects(updatedProjects);
-    const workId = data.id;
-    const shareUrl = `${window.location.origin}/work/${workId}`;
-    setShareInfo({ id: workId, shareUrl });
+    
+    const shareUrl = `${window.location.origin}/work/${savedData.id}`;
+    setShareInfo({ id: savedData.id, shareUrl });
     alert(`保存完了！\nURL: ${shareUrl}`);
   };
-
+  
+   
   const currentScene = slides[currentIndex];
   const handleUpdate = (newScene) => {
     const newSlides = [...slides];
@@ -147,16 +190,24 @@ export default function App() {
     setSlides(newSlides);
   };
 
-  const goToNext = () => {
+ const goToNext = () => {
     if (currentIndex < slides.length - 1) {
       setCurrentIndex(currentIndex + 1);
       return;
     }
-    // プレビュー中または共有表示中の場合は、最後の枚数で止める
     if (isPreview || view === "shared") return;
     
-    // 編集中の場合のみ、新しいスライドを追加する
-    setSlides([...slides, { ...currentScene, text: "", choices: [] }]);
+    // ★ここを修正：現在の画像(charImg, bgImg)を新しいスライドにも引き継ぐ
+    setSlides([
+      ...slides, 
+      { 
+        ...currentScene, 
+        text: "", 
+        choices: [],
+        charImg: currentScene.charImg, // 前の画像をコピー
+        bgImg: currentScene.bgImg      // 前の画像をコピー
+      }
+    ]);
     setCurrentIndex(currentIndex + 1);
   };
 
@@ -305,7 +356,30 @@ const canvasContainerStyle = { width: "100%", maxWidth: "800px", boxShadow: "0 1
 const panelWrapperStyle = { width: "100%", maxWidth: "800px" };
 const mobileNavStyle = { display: window.innerWidth < 600 ? "flex" : "none", gap: "20px", marginTop: "5px" };
 const arrowButtonStyle = { width: "45px", height: "45px", borderRadius: "50%", border: "2px solid #ffb6c1", background: "#fff", color: "#ff69b4", fontSize: "1rem", display: "flex", justifyContent: "center", alignItems: "center", cursor: "pointer", boxShadow: "0 4px 10px rgba(255,182,193,0.3)" };
-const previewOverlayStyle = { position: "fixed", top: 0, left: 0, width: "100%", height: "100%", background: "#111", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", zIndex: 2000, padding: "10px" };
-const canvasWrapperStyle = { width: "100%", maxWidth: "800px", transform: window.innerWidth > 800 ? "scale(1.1)" : "scale(1)" };
+// ここを以下のように書き換えました
+const previewOverlayStyle = { 
+  position: "fixed", 
+  top: 0, 
+  left: 0, 
+  width: "100%", 
+  height: "100%", 
+  background: "#111", 
+  display: "flex", 
+  flexDirection: "column", 
+  justifyContent: "center", 
+  alignItems: "center", 
+  zIndex: 2000, 
+  padding: "10px", 
+  boxSizing: "border-box" // ★画面からはみ出さないように追加
+};
+
+const canvasWrapperStyle = { 
+  width: "100%", 
+  maxWidth: "800px", 
+  display: "flex",           // ★中央寄せのために追加
+  justifyContent: "center",  // ★中央寄せのために追加
+  alignItems: "center"       // ★中央寄せのために追加
+  // transform: scale(...) を削除（これが右に寄る原因でした）
+};
 const exitPreviewButtonStyle = { position: "absolute", top: "15px", right: "15px", padding: "8px 15px", borderRadius: "30px", background: "rgba(255,255,255,0.2)", color: "white", border: "1px solid white", cursor: "pointer", fontSize: "0.8rem", zIndex: 2100 };
 const previewNavStyle = { position: "absolute", bottom: "30px", display: "flex", gap: "40px" };
