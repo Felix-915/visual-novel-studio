@@ -25,6 +25,7 @@ const generateEditKey = () => {
 export default function App() {
   const [view, setView] = useState("home");
   const [isPreview, setIsPreview] = useState(false);
+  const [aspectMode, setAspectMode] = useState("normal"); 
   const [projects, setProjects] = useState(() => {
     const saved = localStorage.getItem("vn-projects");
     return saved ? JSON.parse(saved) : [];
@@ -35,6 +36,8 @@ export default function App() {
   const [shareInfo, setShareInfo] = useState(null);
 
   const canvasRef = useRef(null);
+  // App.js の useState が並んでいるところに追加
+const [saveImageUrl, setSaveImageUrl] = useState(null);
 
   useEffect(() => {
     if (currentProjectId && view === "editor") {
@@ -43,7 +46,6 @@ export default function App() {
       );
       setProjects(updatedProjects);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slides]);
 
   useEffect(() => {
@@ -81,7 +83,6 @@ export default function App() {
     };
 
     loadWork();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const createNewProject = () => {
@@ -120,69 +121,48 @@ export default function App() {
     setView("home");
   };
 
- const publishProject = async () => {
+  const publishProject = async () => {
     const projectIndex = projects.findIndex(p => p.id === currentProjectId);
     const projectData = projects[projectIndex];
 
-    // --- 追加：もしeditKeyがなければ、その場で生成して保存する ---
     let currentEditKey = projectData.editKey;
     if (!currentEditKey) {
       currentEditKey = generateEditKey();
-      // ローカルのプロジェクト一覧にも即座に反映
       const updatedProjectsTemp = [...projects];
       updatedProjectsTemp[projectIndex].editKey = currentEditKey;
       setProjects(updatedProjectsTemp);
     }
-    // ---------------------------------------------------
 
     let result;
     if (projectData.publishedId) {
-      // 既存データの更新
       result = await supabase
         .from("works")
-        .update({ 
-          title: projectData.name, 
-          content: slides 
-        })
+        .update({ title: projectData.name, content: slides })
         .eq("id", projectData.publishedId)
-        .eq("edit_key", currentEditKey) // projectData.editKey ではなく今の変数を使う
+        .eq("edit_key", currentEditKey)
         .select();
     } else {
-      // 新規保存
       result = await supabase
         .from("works")
-        .insert([{ 
-          title: projectData.name, 
-          content: slides, 
-          edit_key: currentEditKey, // projectData.editKey ではなく今の変数を使う
-          is_public: true 
-        }])
+        .insert([{ title: projectData.name, content: slides, edit_key: currentEditKey, is_public: true }])
         .select();
     }
 
     const { data, error } = result;
-    if (error) { 
-      alert("保存失敗: " + error.message); 
-      console.error("Error detail:", error); // 詳細をコンソールに出す
-      return; 
-    }
-    if (!data || data.length === 0) { 
-      alert("保存に失敗しました。合鍵（edit_key）が一致しないか、データが見つかりません。"); 
-      return; 
-    }
+    if (error) { alert("保存失敗: " + error.message); return; }
+    if (!data || data.length === 0) { alert("保存失敗しました"); return; }
     
     const savedData = data[0];
     const updatedProjects = [...projects];
     updatedProjects[projectIndex].publishedId = savedData.id;
-    updatedProjects[projectIndex].editKey = currentEditKey; // 確実に保存
+    updatedProjects[projectIndex].editKey = currentEditKey;
     setProjects(updatedProjects);
     
     const shareUrl = `${window.location.origin}/work/${savedData.id}`;
     setShareInfo({ id: savedData.id, shareUrl });
     alert(`保存完了！\nURL: ${shareUrl}`);
   };
-  
-   
+
   const currentScene = slides[currentIndex];
   const handleUpdate = (newScene) => {
     const newSlides = [...slides];
@@ -190,41 +170,37 @@ export default function App() {
     setSlides(newSlides);
   };
 
- const goToNext = () => {
+  const goToNext = () => {
     if (currentIndex < slides.length - 1) {
       setCurrentIndex(currentIndex + 1);
       return;
     }
     if (isPreview || view === "shared") return;
-    
-    // ★ここを修正：現在の画像(charImg, bgImg)を新しいスライドにも引き継ぐ
-    setSlides([
-      ...slides, 
-      { 
-        ...currentScene, 
-        text: "", 
-        choices: [],
-        charImg: currentScene.charImg, // 前の画像をコピー
-        bgImg: currentScene.bgImg      // 前の画像をコピー
-      }
-    ]);
+    setSlides([...slides, { ...currentScene, text: "", choices: [], charImg: currentScene.charImg, bgImg: currentScene.bgImg }]);
     setCurrentIndex(currentIndex + 1);
   };
 
   const goToPrev = () => { if (currentIndex > 0) setCurrentIndex(currentIndex - 1); };
 
-  const saveSlideAsImage = async () => {
-    if (!canvasRef.current) return;
-    const canvas = await html2canvas(canvasRef.current, { useCORS: true, scale: 2, backgroundColor: "#000" });
-    const link = document.createElement("a");
-    link.href = canvas.toDataURL("image/png");
-    link.download = `scene_${currentIndex + 1}.png`;
-    link.click();
-  };
-
+ const saveSlideAsImage = async () => {
+  if (!canvasRef.current) return;
+  
+  // 1. 画面をキャプチャ
+  const canvas = await html2canvas(canvasRef.current, { 
+    useCORS: true, 
+    scale: 2, 
+    backgroundColor: "#000" 
+  });
+  
+  // 2. データURLに変換
+  const dataUrl = canvas.toDataURL("image/png");
+  
+  // 3. 表示用のステートにセット
+  setSaveImageUrl(dataUrl);
+};
   const shareOnX = () => {
     if (!shareInfo?.shareUrl) { alert("先に保存してください"); return; }
-    const text = encodeURIComponent("乙女ゲームメーカーで作りました！あなたも簡単に作れます✨");
+    const text = encodeURIComponent("乙女ゲームメーカーで作りました！");
     window.open(`https://twitter.com/intent/tweet?text=${text}&url=${encodeURIComponent(shareInfo.shareUrl)}`, "_blank");
   };
 
@@ -260,6 +236,9 @@ export default function App() {
         </div>
       ) : (isPreview || view === "shared") ? (
         <div style={previewOverlayStyle}>
+          <button onClick={() => setAspectMode(aspectMode === "normal" ? "tiktok" : "normal")} style={aspectToggleButtonStyle}>
+            {aspectMode === "normal" ? "9 : 16で表示" : "16 : 9で表示"}
+          </button>
           {view !== "shared" && <button onClick={() => setIsPreview(false)} style={exitPreviewButtonStyle}>✕ 編集に戻る</button>}
           {view === "shared" && <button onClick={() => setView("home")} style={exitPreviewButtonStyle}>🏠 ホームへ</button>}
           
@@ -268,11 +247,12 @@ export default function App() {
           </div>
 
           <div style={canvasWrapperStyle}>
-            <GameCanvas scene={currentScene} />
+            <GameCanvas scene={currentScene} aspectMode={aspectMode} />
           </div>
-          <div style={previewNavStyle}>
-            <button onClick={goToPrev} disabled={currentIndex === 0} style={{ ...arrowButtonStyle, opacity: currentIndex === 0 ? 0.3 : 1 }}>◀</button>
-            <button onClick={goToNext} disabled={currentIndex === slides.length - 1} style={{ ...arrowButtonStyle, opacity: currentIndex === slides.length - 1 ? 0.3 : 1 }}>▶</button>
+
+          <div style={aspectMode === "tiktok" ? { ...previewNavMiddleStyle, pointerEvents: "none" } : previewNavStyle}>
+            <button onClick={goToPrev} disabled={currentIndex === 0} style={{ ...arrowButtonStyle, opacity: currentIndex === 0 ? 0.3 : 1, pointerEvents: "auto" }}>◀</button>
+            <button onClick={goToNext} disabled={currentIndex === slides.length - 1} style={{ ...arrowButtonStyle, opacity: currentIndex === slides.length - 1 ? 0.3 : 1, pointerEvents: "auto" }}>▶</button>
           </div>
         </div>
       ) : (
@@ -281,11 +261,15 @@ export default function App() {
             <button onClick={() => setView("home")} style={toolbarButtonStyle}>
               <span className="material-symbols-outlined" style={{ fontSize: "24px" }}>home</span>
             </button>
-            <div style={{ color: "#ff69b4", fontWeight: "bold", fontSize: "0.9rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, textAlign: "center", margin: "0 10px" }}>
+            <div style={{ color: "#ff69b4", fontWeight: "bold", fontSize: "0.9rem", flex: 1, textAlign: "center" }}>
               {projects.find(p => p.id === currentProjectId)?.name}
             </div>
             <div style={{ display: "flex", gap: "5px" }}>
-              <button onClick={publishProject} style={toolbarButtonStyle}>保存</button>
+             <button onClick={() => setAspectMode(aspectMode === "normal" ? "tiktok" : "normal")} style={{ ...arrowButtonStyle, fontSize: "0.6rem", flexDirection: "column", gap: "2px", lineHeight: "1", display: window.innerWidth < 600 ? "none" : "flex" }}>
+            
+              {aspectMode === "normal" ? "9:16" : "16:9"}
+            </button>
+              <button onClick={saveSlideAsImage} style={toolbarButtonStyle}>📸 画像保存</button>
               <button onClick={() => setIsPreview(true)} style={saveButtonStyle}>📖 再生</button>
             </div>
           </div>
@@ -296,27 +280,89 @@ export default function App() {
 
           <div style={mainEditorAreaStyle}>
             <button onClick={goToPrev} disabled={currentIndex === 0} style={{ ...arrowButtonStyle, opacity: currentIndex === 0 ? 0.3 : 1, display: window.innerWidth < 600 ? "none" : "flex" }}>◀</button>
-            <div ref={canvasRef} style={canvasContainerStyle}>
-              <GameCanvas scene={currentScene} />
+         
+            <div ref={canvasRef} style={{ ...canvasContainerStyle, display: "flex", justifyContent: "center", alignItems: "center", background: "#000", height: aspectMode === "tiktok" ? "65vh" : "auto", minHeight: aspectMode === "tiktok" ? "400px" : "auto" }}>
+              <GameCanvas scene={currentScene} aspectMode={aspectMode} />
             </div>
             <button onClick={goToNext} style={{ ...arrowButtonStyle, display: window.innerWidth < 600 ? "none" : "flex" }}>▶</button>
           </div>
 
           <div style={mobileNavStyle}>
             <button onClick={goToPrev} disabled={currentIndex === 0} style={arrowButtonStyle}>◀</button>
+            <button onClick={() => setAspectMode(aspectMode === "normal" ? "tiktok" : "normal")} style={{ ...arrowButtonStyle, fontSize: "0.8rem", width: "auto", padding: "0 15px", borderRadius: "20px" }}>
+              {aspectMode === "normal" ? "9:16表示" : "16:9表示"}
+            </button>
             <button onClick={goToNext} style={arrowButtonStyle}>▶</button>
           </div>
-
+  
           <div style={panelWrapperStyle}>
-            <EditorPanel scene={currentScene} onUpdate={handleUpdate} />
+            <EditorPanel scene={currentScene} onUpdate={handleUpdate} aspectMode={aspectMode} />
           </div>
           
-          <div style={{ display: "flex", gap: "10px", width: "100%", maxWidth: "800px", justifyContent: "center", paddingBottom: "20px" }}>
-              <button onClick={saveSlideAsImage} style={toolbarButtonStyle}>📸 画像保存</button>
+          <div style={{ display: "flex", gap: "10px", paddingBottom: "20px" }}>
+              <button onClick={publishProject} style={toolbarButtonStyle}>保存</button>
               <button onClick={shareOnX} style={toolbarButtonStyle}>𝕏 共有</button>
           </div>
         </div>
       )}
+      {/* 画像保存用のプレビュー画面 */}
+{saveImageUrl && (
+  <div 
+    style={{
+      position: "fixed",
+      top: 0,
+      left: 0,
+      width: "100%",
+      height: "100%",
+      background: "rgba(70, 26, 26, 0.85)", // 背景を暗く
+      zIndex: 5000,
+      display: "flex",
+      flexDirection: "column",
+      justifyContent: "center",
+      alignItems: "center",
+      padding: "20px"
+    }}
+    onClick={() => setSaveImageUrl(null)} // 画面のどこかをタップで閉じる
+  >
+    <p style={{ color: "#fff", marginBottom: "15px", fontWeight: "bold" }}>
+      画像を長押しして保存してください
+    </p>
+    
+   <img 
+  src={saveImageUrl} 
+  alt="Save Preview" 
+  style={{ 
+    maxWidth: "100%",      // 親の横幅いっぱいに制限
+    maxHeight: "70vh",     // 画面の高さの70%までに制限（ボタンや文字のスペースを確保）
+    width: "auto",         // 比率を維持
+    height: "auto",        // 比率を維持
+    objectFit: "contain",  // 枠内に収める（はみ出し防止の決定打）
+    display: "block",
+    margin: "0 auto",
+    borderRadius: "10px", 
+    boxShadow: "0 0 20px rgba(0,0,0,0.5)",
+    border: "2px solid #fff",
+    boxSizing: "border-box" // ボーダー分が外に出ないように
+  }} 
+/>
+
+    <button 
+      onClick={() => setSaveImageUrl(null)}
+      style={{
+        marginTop: "20px",
+        padding: "10px 30px",
+        borderRadius: "30px",
+        background: "#ff69b4",
+        color: "white",
+        border: "none",
+        fontWeight: "bold",
+        cursor: "pointer"
+      }}
+    >
+      閉じる
+    </button>
+  </div>
+)}
     </>
   );
 }
@@ -335,51 +381,44 @@ function WorkPage({ setSlides, setView, setCurrentIndex, setCurrentProjectId }) 
       else { setView("shared"); }
     };
     loadWork();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
   return null;
 }
 
-const homeBackgroundStyle = { minHeight: "100vh", background: "linear-gradient(135deg, #fff5f7 0%, #ffffff 100%)", padding: "20px", display: "flex", flexDirection: "column", alignItems: "center", fontFamily: "sans-serif" };
-const titleBoxStyle = { width: "90%", maxWidth: "500px", display: "flex", justifyContent: "center", alignItems: "center", gap: "15px", padding: "10px 20px", background: "#fff", borderRadius: "50px", border: "1px solid #ffdae9", marginBottom: "30px", boxShadow: "0 10px 20px rgba(255, 182, 193, 0.1)" };
-const titleStyle = { fontSize: "clamp(1.2rem, 5vw, 2rem)", fontWeight: "bold", color: "#ff69b4", margin: 0, letterSpacing: "0.05em" };
+const arrowButtonStyle = { 
+  width: "45px", 
+  height: "45px", 
+  borderRadius: "50%", 
+  border: "2px solid #ffb6c1", 
+  background: "#fff", 
+  color: "#ff69b4", 
+  fontSize: "1rem", 
+  display: "flex", 
+  justifyContent: "center", 
+  alignItems: "center", 
+  cursor: "pointer", 
+  boxShadow: "0 4px 10px rgba(255,182,193,0.3)",
+  boxSizing: "border-box"
+};
+
+const homeBackgroundStyle = { minHeight: "100vh", background: "linear-gradient(135deg, #fff5f7 0%, #ffffff 100%)", padding: "20px", display: "flex", flexDirection: "column", alignItems: "center" };
+const titleBoxStyle = { width: "90%", maxWidth: "500px", display: "flex", justifyContent: "center", alignItems: "center", gap: "15px", padding: "10px 20px", background: "#fff", borderRadius: "50px", border: "1px solid #ffdae9", marginBottom: "30px" };
+const titleStyle = { fontSize: "clamp(1.2rem, 5vw, 2rem)", fontWeight: "bold", color: "#ff69b4", margin: 0 };
 const projectGridStyle = { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: "15px", width: "100%", maxWidth: "900px" };
-const projectCardStyle = { background: "#fff", padding: "15px", borderRadius: "15px", border: "1px solid #ffdae9", textAlign: "center", cursor: "pointer", boxShadow: "0 4px 10px rgba(255,182,193,0.15)" };
+const projectCardStyle = { background: "#fff", padding: "15px", borderRadius: "15px", border: "1px solid #ffdae9", textAlign: "center", cursor: "pointer" };
 const newProjectCardStyle = { ...projectCardStyle, border: "2px dashed #ffb6c1", color: "#ffb6c1" };
 const deleteButtonStyle = { marginTop: "8px", background: "none", border: "none", color: "#ffb6c1", cursor: "pointer", fontSize: "0.65rem" };
-const editorBackgroundStyle = { display: "flex", flexDirection: "column", alignItems: "center", gap: "15px", padding: "10px", minHeight: "100vh", background: "#fff5f7", fontFamily: "sans-serif" };
-const toolbarStyle = { width: "100%", maxWidth: "800px", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 15px", background: "#fff", borderRadius: "30px", border: "1px solid #ffdae9", boxSizing: "border-box" };
+const editorBackgroundStyle = { display: "flex", flexDirection: "column", alignItems: "center", gap: "15px", padding: "10px", minHeight: "100vh", background: "#fff5f7" };
+const toolbarStyle = { width: "100%", maxWidth: "800px", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 15px", background: "#fff", borderRadius: "30px", border: "1px solid #ffdae9" };
 const toolbarButtonStyle = { padding: "8px 12px", borderRadius: "20px", border: "1px solid #ffdae9", background: "#fff", color: "#ff69b4", cursor: "pointer", fontSize: "0.85rem", fontWeight: "bold" };
 const saveButtonStyle = { ...toolbarButtonStyle, background: "#ff69b4", color: "#fff", border: "none" };
 const mainEditorAreaStyle = { display: "flex", alignItems: "center", gap: "10px", width: "100%", justifyContent: "center" };
-const canvasContainerStyle = { width: "100%", maxWidth: "800px", boxShadow: "0 10px 30px rgba(0,0,0,0.1)", borderRadius: "15px", overflow: "hidden" };
+const canvasContainerStyle = { width: "100%", maxWidth: "800px", borderRadius: "15px", overflow: "hidden" };
 const panelWrapperStyle = { width: "100%", maxWidth: "800px" };
 const mobileNavStyle = { display: window.innerWidth < 600 ? "flex" : "none", gap: "20px", marginTop: "5px" };
-const arrowButtonStyle = { width: "45px", height: "45px", borderRadius: "50%", border: "2px solid #ffb6c1", background: "#fff", color: "#ff69b4", fontSize: "1rem", display: "flex", justifyContent: "center", alignItems: "center", cursor: "pointer", boxShadow: "0 4px 10px rgba(255,182,193,0.3)" };
-// ここを以下のように書き換えました
-const previewOverlayStyle = { 
-  position: "fixed", 
-  top: 0, 
-  left: 0, 
-  width: "100%", 
-  height: "100%", 
-  background: "#111", 
-  display: "flex", 
-  flexDirection: "column", 
-  justifyContent: "center", 
-  alignItems: "center", 
-  zIndex: 2000, 
-  padding: "10px", 
-  boxSizing: "border-box" // ★画面からはみ出さないように追加
-};
-
-const canvasWrapperStyle = { 
-  width: "100%", 
-  maxWidth: "800px", 
-  display: "flex",           // ★中央寄せのために追加
-  justifyContent: "center",  // ★中央寄せのために追加
-  alignItems: "center"       // ★中央寄せのために追加
-  // transform: scale(...) を削除（これが右に寄る原因でした）
-};
+const previewOverlayStyle = { position: "fixed", top: 0, left: 0, width: "100%", height: "100%", background: "#111", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", zIndex: 2000, padding: "40px 20px", boxSizing: "border-box" };
+const canvasWrapperStyle = { width: "100%", height: "100%", display: "flex", justifyContent: "center", alignItems: "center", maxHeight: "80vh" };
 const exitPreviewButtonStyle = { position: "absolute", top: "15px", right: "15px", padding: "8px 15px", borderRadius: "30px", background: "rgba(255,255,255,0.2)", color: "white", border: "1px solid white", cursor: "pointer", fontSize: "0.8rem", zIndex: 2100 };
 const previewNavStyle = { position: "absolute", bottom: "30px", display: "flex", gap: "40px" };
+const aspectToggleButtonStyle = { position: "absolute", top: "15px", left: "15px", padding: "8px 20px", borderRadius: "30px", background: "rgba(255, 255, 255, 0.2)", color: "white", border: "1px solid white", cursor: "pointer", fontSize: "0.8rem", zIndex: 2200 };
+const previewNavMiddleStyle = { position: "fixed", top: "50%", left: "0", width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 10px", transform: "translateY(-50%)", zIndex: 2500, boxSizing: "border-box" };
