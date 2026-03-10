@@ -10,16 +10,19 @@ export default function GameCanvas({ scene, aspectMode = "normal" }) {
         maxHeight: "100%",
         maxWidth: "100%",
         position: "relative",
-        background: "#222",
-        border: "6px solid #fff5f7",
+        background: isTiktok ? "transparent" : "#030303",
+        // borderの重複を削除し、Tiktok時は消えるように修正
+        border: isTiktok ? "none" : "6px solid #fff5f7",
+        boxShadow: isTiktok ? "none" : "0 10px 30px rgba(0,0,0,0.3)",
         borderRadius: "15px",
-        overflow: "hidden",
-        boxShadow: "0 10px 30px rgba(0,0,0,0.3)",
+        overflow: "hidden", // これが重要
         boxSizing: "border-box",
         margin: "0 auto",
         display: "flex",
         justifyContent: "center",
-        alignItems: "center"
+        alignItems: "center",
+        // 外側のボタンがこれより上にくるようにスタックを明示
+        zIndex: 0 
       }}
     >
       {/* 背景画像 */}
@@ -31,7 +34,8 @@ export default function GameCanvas({ scene, aspectMode = "normal" }) {
             position: "absolute",
             width: "100%",
             height: "100%",
-            objectFit: "cover"
+            objectFit: "cover",
+            zIndex: -1 // 背景は一番下
           }}
         />
       )}
@@ -141,7 +145,7 @@ export default function GameCanvas({ scene, aspectMode = "normal" }) {
         </div>
       )}
 
-      {/* ★重要：長押し保存用の透明画像（一番上に配置）★ */}
+      {/* ★修正ポイント：zIndexを下げてボタンが追い越せるようにする★ */}
       {scene.compositeImage && (
         <img
           src={scene.compositeImage}
@@ -153,7 +157,7 @@ export default function GameCanvas({ scene, aspectMode = "normal" }) {
             width: "100%",
             height: "100%",
             opacity: 0,
-            zIndex: 100,
+            zIndex: 20, // 100から20に下げました
             pointerEvents: "auto",
             WebkitTouchCallout: "default"
           }}

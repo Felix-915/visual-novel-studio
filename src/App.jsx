@@ -36,8 +36,7 @@ export default function App() {
   const [shareInfo, setShareInfo] = useState(null);
 
   const canvasRef = useRef(null);
-  // App.js の useState が並んでいるところに追加
-const [saveImageUrl, setSaveImageUrl] = useState(null);
+  const [saveImageUrl, setSaveImageUrl] = useState(null);
 
   useEffect(() => {
     if (currentProjectId && view === "editor") {
@@ -182,22 +181,17 @@ const [saveImageUrl, setSaveImageUrl] = useState(null);
 
   const goToPrev = () => { if (currentIndex > 0) setCurrentIndex(currentIndex - 1); };
 
- const saveSlideAsImage = async () => {
-  if (!canvasRef.current) return;
-  
-  // 1. 画面をキャプチャ
-  const canvas = await html2canvas(canvasRef.current, { 
-    useCORS: true, 
-    scale: 2, 
-    backgroundColor: "#000" 
-  });
-  
-  // 2. データURLに変換
-  const dataUrl = canvas.toDataURL("image/png");
-  
-  // 3. 表示用のステートにセット
-  setSaveImageUrl(dataUrl);
-};
+  const saveSlideAsImage = async () => {
+    if (!canvasRef.current) return;
+    const canvas = await html2canvas(canvasRef.current, { 
+      useCORS: true, 
+      scale: 2, 
+      backgroundColor: "#000" 
+    });
+    const dataUrl = canvas.toDataURL("image/png");
+    setSaveImageUrl(dataUrl);
+  };
+
   const shareOnX = () => {
     if (!shareInfo?.shareUrl) { alert("先に保存してください"); return; }
     const text = encodeURIComponent("乙女ゲームメーカーで作りました！");
@@ -265,10 +259,9 @@ const [saveImageUrl, setSaveImageUrl] = useState(null);
               {projects.find(p => p.id === currentProjectId)?.name}
             </div>
             <div style={{ display: "flex", gap: "5px" }}>
-             <button onClick={() => setAspectMode(aspectMode === "normal" ? "tiktok" : "normal")} style={{ ...arrowButtonStyle, fontSize: "0.6rem", flexDirection: "column", gap: "2px", lineHeight: "1", display: window.innerWidth < 600 ? "none" : "flex" }}>
-            
-              {aspectMode === "normal" ? "9:16" : "16:9"}
-            </button>
+              <button onClick={() => setAspectMode(aspectMode === "normal" ? "tiktok" : "normal")} style={{ ...arrowButtonStyle, fontSize: "0.6rem", flexDirection: "column", gap: "2px", lineHeight: "1", display: window.innerWidth < 600 ? "none" : "flex" }}>
+                {aspectMode === "normal" ? "9:16" : "16:9"}
+              </button>
               <button onClick={saveSlideAsImage} style={toolbarButtonStyle}>📸 画像保存</button>
               <button onClick={() => setIsPreview(true)} style={saveButtonStyle}>📖 再生</button>
             </div>
@@ -279,12 +272,17 @@ const [saveImageUrl, setSaveImageUrl] = useState(null);
           </div>
 
           <div style={mainEditorAreaStyle}>
-            <button onClick={goToPrev} disabled={currentIndex === 0} style={{ ...arrowButtonStyle, opacity: currentIndex === 0 ? 0.3 : 1, display: window.innerWidth < 600 ? "none" : "flex" }}>◀</button>
-         
+            <button onClick={goToPrev} disabled={currentIndex === 0} style={{ ...arrowButtonStyle, opacity: currentIndex === 0 ? 0.3 : 1, display: window.innerWidth < 600 ? "none" : "flex",
+              position: "relative", // 追加
+      zIndex: 1000
+             }}>◀</button>
             <div ref={canvasRef} style={{ ...canvasContainerStyle, display: "flex", justifyContent: "center", alignItems: "center", background: "#000", height: aspectMode === "tiktok" ? "65vh" : "auto", minHeight: aspectMode === "tiktok" ? "400px" : "auto" }}>
               <GameCanvas scene={currentScene} aspectMode={aspectMode} />
             </div>
-            <button onClick={goToNext} style={{ ...arrowButtonStyle, display: window.innerWidth < 600 ? "none" : "flex" }}>▶</button>
+            <button onClick={goToNext} style={{ ...arrowButtonStyle, display: window.innerWidth < 600 ? "none" : "flex",
+              position: "relative", // 追加
+      zIndex: 1000
+             }}>▶</button>
           </div>
 
           <div style={mobileNavStyle}>
@@ -305,64 +303,67 @@ const [saveImageUrl, setSaveImageUrl] = useState(null);
           </div>
         </div>
       )}
-      {/* 画像保存用のプレビュー画面 */}
-{saveImageUrl && (
-  <div 
-    style={{
-      position: "fixed",
-      top: 0,
-      left: 0,
-      width: "100%",
-      height: "100%",
-      background: "rgba(70, 26, 26, 0.85)", // 背景を暗く
-      zIndex: 5000,
-      display: "flex",
-      flexDirection: "column",
-      justifyContent: "center",
-      alignItems: "center",
-      padding: "20px"
-    }}
-    onClick={() => setSaveImageUrl(null)} // 画面のどこかをタップで閉じる
-  >
-    <p style={{ color: "#fff", marginBottom: "15px", fontWeight: "bold" }}>
-      画像を長押しして保存してください
-    </p>
-    
-   <img 
-  src={saveImageUrl} 
-  alt="Save Preview" 
-  style={{ 
-    maxWidth: "100%",      // 親の横幅いっぱいに制限
-    maxHeight: "70vh",     // 画面の高さの70%までに制限（ボタンや文字のスペースを確保）
-    width: "auto",         // 比率を維持
-    height: "auto",        // 比率を維持
-    objectFit: "contain",  // 枠内に収める（はみ出し防止の決定打）
-    display: "block",
-    margin: "0 auto",
-    borderRadius: "10px", 
-    boxShadow: "0 0 20px rgba(0,0,0,0.5)",
-    border: "2px solid #fff",
-    boxSizing: "border-box" // ボーダー分が外に出ないように
-  }} 
-/>
 
-    <button 
-      onClick={() => setSaveImageUrl(null)}
-      style={{
-        marginTop: "20px",
-        padding: "10px 30px",
-        borderRadius: "30px",
-        background: "#ff69b4",
-        color: "white",
-        border: "none",
-        fontWeight: "bold",
-        cursor: "pointer"
-      }}
-    >
-      閉じる
-    </button>
-  </div>
-)}
+      {saveImageUrl && (
+        <div 
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            background: "rgba(0,0,0,0.85)", 
+            zIndex: 5000,
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+            alignItems: "center",
+            padding: "20px",
+            boxSizing: "border-box"
+          }}
+          onClick={() => setSaveImageUrl(null)}
+        >
+          <div style={{ 
+            width: "100%", 
+            display: "flex", 
+            flexDirection: "column", 
+            alignItems: "center", 
+            gap: "15px" 
+          }}>
+            <p style={{ color: "#fff", margin: 0, fontWeight: "bold", textAlign: "center" }}>
+              画像を長押しして保存してください
+            </p>
+            <img 
+              src={saveImageUrl} 
+              alt="Save Preview" 
+              style={{ 
+                maxWidth: "100%", 
+                maxHeight: "70vh", 
+                objectFit: "contain",
+                borderRadius: "10px", 
+                boxShadow: "0 0 20px rgba(0,0,0,0.5)",
+                border: "2px solid #fff",
+                display: "block"
+              }} 
+            />
+            <button 
+              onClick={() => setSaveImageUrl(null)}
+              style={{
+                padding: "10px 40px",
+                borderRadius: "30px",
+                background: "#ff69b4",
+                color: "white",
+                border: "none",
+                fontWeight: "bold",
+                cursor: "pointer",
+                fontSize: "1rem"
+              }}
+            >
+              閉じる
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 }
